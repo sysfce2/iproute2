@@ -1176,7 +1176,9 @@ static void buf_free_all(void)
 	buffer.chunks = 0;
 }
 
-/* Get current screen width, returns -1 if TIOCGWINSZ fails */
+/* Get current screen width. Returns -1 if TIOCGWINSZ fails and there's
+ * no COLUMNS variable in the environment.
+ */
 static int render_screen_width(void)
 {
 	int width = -1;
@@ -1187,6 +1189,17 @@ static int render_screen_width(void)
 		if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &w) != -1) {
 			if (w.ws_col > 0)
 				width = w.ws_col;
+		}
+	}
+
+	if (width == -1) {
+		const char *p = getenv("COLUMNS");
+		int c;
+
+		if (p) {
+			c = atoi(p);
+			if (c > 0)
+				width = c;
 		}
 	}
 
@@ -1503,7 +1516,7 @@ static const char *print_ms_timer(unsigned int timeout)
 		sprintf(buf+strlen(buf), "%d%s", secs, msecs ? "." : "sec");
 	}
 	if (msecs)
-		sprintf(buf+strlen(buf), "%03dms", msecs);
+		sprintf(buf+strlen(buf), "%03d%s", msecs, secs ? "sec" : "ms");
 	return buf;
 }
 
