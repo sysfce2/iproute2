@@ -53,7 +53,7 @@
 #include <linux/mptcp.h>
 
 #ifdef HAVE_LIBBPF
-/* If libbpf is new enough (0.5+), support for pretty-printing BPF socket-local
+/* If libbpf is new enough (0.6+), support for pretty-printing BPF socket-local
  * storage is enabled, otherwise we emit a warning and disable it.
  * ENABLE_BPF_SKSTORAGE_SUPPORT is only used to gate the socket-local storage
  * feature, so this wouldn't prevent any feature relying on HAVE_LIBBPF to be
@@ -66,8 +66,8 @@
 #include <bpf/libbpf.h>
 #include <linux/btf.h>
 
-#if (LIBBPF_MAJOR_VERSION == 0) && (LIBBPF_MINOR_VERSION < 5)
-#warning "libbpf version 0.5 or later is required, disabling BPF socket-local storage support"
+#if ((LIBBPF_MAJOR_VERSION == 0) && (LIBBPF_MINOR_VERSION < 6))
+#warning "libbpf version 0.6 or later is required, disabling BPF socket-local storage support"
 #undef ENABLE_BPF_SKSTORAGE_SUPPORT
 #endif
 #endif
@@ -1176,7 +1176,9 @@ static void buf_free_all(void)
 	buffer.chunks = 0;
 }
 
-/* Get current screen width, returns -1 if TIOCGWINSZ fails */
+/* Get current screen width. Returns -1 if TIOCGWINSZ fails and there's
+ * no COLUMNS variable in the environment.
+ */
 static int render_screen_width(void)
 {
 	int width = -1;
@@ -1187,6 +1189,17 @@ static int render_screen_width(void)
 		if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &w) != -1) {
 			if (w.ws_col > 0)
 				width = w.ws_col;
+		}
+	}
+
+	if (width == -1) {
+		const char *p = getenv("COLUMNS");
+		int c;
+
+		if (p) {
+			c = atoi(p);
+			if (c > 0)
+				width = c;
 		}
 	}
 
@@ -1503,7 +1516,7 @@ static const char *print_ms_timer(unsigned int timeout)
 		sprintf(buf+strlen(buf), "%d%s", secs, msecs ? "." : "sec");
 	}
 	if (msecs)
-		sprintf(buf+strlen(buf), "%03dms", msecs);
+		sprintf(buf+strlen(buf), "%03d%s", msecs, secs ? "sec" : "ms");
 	return buf;
 }
 
